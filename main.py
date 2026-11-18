@@ -1,83 +1,85 @@
-"""Copy the news-image-20261117 entry image to the output directory.
+"""News-image entry runner for make.fun (news-image-20261117).
 
-Reads entry.png next to this script and copies it byte-for-byte into the
-directory given by the MAKEFUN_OUTPUT_DIR environment variable (default
-"/output"). After copying, the SHA-256 digest of the source file and of the
-copied file are compared; any mismatch aborts with an error. The program is
-fully deterministic: no randomness, no network access, no timestamps.
-Only the Python standard library is used.
+The entry itself is a single finished picture, entry.png, sitting next to
+this file. All this program does is place an exact copy of that picture
+where the competition harness expects it and prove the copy is exact.
+
+It reads the output folder from MAKEFUN_OUTPUT_DIR and falls back to
+/output when the variable is unset. After copying it checks two things:
+the copy has the same byte count as the original, and both files share
+one SHA-256 digest. Any mismatch is reported on stderr and the program
+exits non-zero, so a bad copy can never pass silently.
+
+There is no randomness, no clock, no network and no third-party code
+here: the same input always produces the same output bytes.
 """
 
 import hashlib
 import os
 import shutil
 import sys
+from pathlib import Path
 
-SOURCE_NAME = "entry.png"
-DEFAULT_OUTPUT_DIR = "/output"
+ENTRY = "entry.png"
+FALLBACK_DIR = "/output"
 
 
-def sha256_of(path):
-    """Return the hex SHA-256 digest of the file at path."""
+def file_sha256(path):
+    """Hex SHA-256 digest of the file at path, streamed in 1 MiB blocks."""
     digest = hashlib.sha256()
     with open(path, "rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
+        while True:
+            block = handle.read(1024 * 1024)
+            if not block:
+                break
+            digest.update(block)
     return digest.hexdigest()
 
 
-def main():
-    repo_dir = os.path.dirname(os.path.abspath(__file__))
-    source_path = os.path.join(repo_dir, SOURCE_NAME)
+def fail(message):
+    """Print an error to stderr and return the failure exit code."""
+    print(f"error: {message}", file=sys.stderr)
+    return 1
 
-    if not os.path.isfile(source_path):
-        print(f"error: source image not found: {source_path}", file=sys.stderr)
-        return 1
 
-    output_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", DEFAULT_OUTPUT_DIR)
+def run():
+    """Copy entry.png to the output folder and verify the copy."""
+    here = Path(__file__).resolve().parent
+    source = here / ENTRY
+    if not source.is_file():
+        return fail(f"entry image missing: {source}")
+    if source.stat().st_size == 0:
+        return fail(f"entry image is empty: {source}")
+
+    out_dir = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", FALLBACK_DIR))
     try:
-        os.makedirs(output_dir, exist_ok=True)
+        out_dir.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        print(f"error: cannot create output directory {output_dir}: {exc}",
-              file=sys.stderr)
-        return 1
+        return fail(f"cannot create output folder {out_dir}: {exc}")
 
-    dest_path = os.path.join(output_dir, SOURCE_NAME)
-
+    target = out_dir / ENTRY
     try:
-        shutil.copyfile(source_path, dest_path)
+        shutil.copyfile(source, target)
     except OSError as exc:
-        print(f"error: failed to copy {source_path} to {dest_path}: {exc}",
-              file=sys.stderr)
-        return 1
+        return fail(f"copy failed: {source} -> {target}: {exc}")
 
-    source_digest = sha256_of(source_path)
-    dest_digest = sha256_of(dest_path)
-
-    source_size = os.path.getsize(source_path)
-    dest_size = os.path.getsize(dest_path)
-    if source_size != dest_size:
-        print(
-            "error: file size mismatch after copy:\n"
-            f"  source: {source_path} -> {source_size} bytes\n"
-            f"  copied: {dest_path} -> {dest_size} bytes",
-            file=sys.stderr,
+    # The copy must be byte-identical: same size and same digest.
+    if source.stat().st_size != target.stat().st_size:
+        return fail(
+            "size mismatch after copy: "
+            f"source {source.stat().st_size} bytes, "
+            f"copy {target.stat().st_size} bytes"
         )
-        return 1
+    want = file_sha256(source)
+    got = file_sha256(target)
+    if want != got:
+        return fail(f"SHA-256 mismatch after copy: {want} != {got}")
 
-    if source_digest != dest_digest:
-        print(
-            "error: SHA-256 mismatch after copy:\n"
-            f"  source: {source_path} -> {source_digest}\n"
-            f"  copied: {dest_path} -> {dest_digest}",
-            file=sys.stderr,
-        )
-        return 1
-
-    print(f"copied {source_path} to {dest_path}")
-    print(f"sha256: {dest_digest}")
+    print(f"copied {source} to {target}")
+    print(f"size: {target.stat().st_size} bytes")
+    print(f"sha256: {got}")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run())
