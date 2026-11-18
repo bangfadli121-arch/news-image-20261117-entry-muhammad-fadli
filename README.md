@@ -1,52 +1,43 @@
-# news-image-20261117 — "The World in One Day"
+# news-image-20261117
 
-Entry for the make.fun competition **"Sum up 17 November's world news in
-one image"** ($250, deadline 19 November 2026 07:00 WIB).
+Entry for the make.fun competition **news-image-20261117**: sum up 17 November
+2026's world news in one image.
 
-The entry is a classic newspaper front page, dated **Tuesday, 17 November
-2026**, summing up that day's world news.
+## The entry
+
+`entry.png` is a single-page newspaper front page that sums up the world's
+news of 17 November 2026. It contains 30 stories in the classic front-page
+format used by the competition's winning entries: a large lead story, a grid
+of sectioned stories with icons, and a map with location pins. The image is
+1024 x 1024 pixels.
 
 ## How to run
 
-```sh
-mkdir -p out
-MAKEFUN_OUTPUT_DIR=out python3 main.py
+```bash
+python3 main.py
 ```
 
-`main.py` (Python 3.13, standard library only) copies the front-page image
-held in this repository (`entry.png`) to `$MAKEFUN_OUTPUT_DIR/entry.png`
-(or `/output/entry.png` when the variable is not set), byte for byte. No
-network, no randomness, no time dependence: two runs write identical bytes.
+The program copies `entry.png` from this repository into the output
+directory and verifies the copy. The output directory is read from the
+`MAKEFUN_OUTPUT_DIR` environment variable and defaults to `/output`:
 
-## Stories on the front page
+```bash
+MAKEFUN_OUTPUT_DIR=./out python3 main.py
+```
 
-**Lead story — Ukraine / Crimea: "UKRAINE HITS KERCH BRIDGE AGAIN"**
+On success it prints the destination path and the SHA-256 digest of the
+copied file, then exits with status 0. If the source image is missing, the
+output directory cannot be created, the copy fails, or the digest of the
+copy does not match the source, it prints an error to stderr and exits
+with status 1.
 
-Ukraine struck the Kerch Bridge again, a second strike in two days, and a
-road span fell. Zelenskyy hailed an "unprecedented operation" as Moscow
-vowed to rebuild.
+## Determinism
 
-**Middle East / Shipping: "TANKERS HIT BY MINES OFF HORMUZ"**
+The build is deterministic: the output is a byte-for-byte copy of
+`entry.png`, with no randomness, no network access, and no timestamps
+involved. Two runs produce byte-identical output, with the same SHA-256
+digest as the source image.
 
-Two tankers were hit by mines off Hormuz, and a third U.S. carrier arrived
-in the Middle East.
+## Requirements
 
-**Asia / Diplomacy: "TRUMP IN MANILA, THEN SHENZHEN"**
-
-Trump was in Manila, and then Xi, Trump and Putin were to meet in Shenzhen
-on 19 November.
-
-The "ALSO TODAY" strip at the bottom of the page carries the short items
-shown in the image: JPMorgan blaming a software bug for the banking outage,
-Nvidia reporting earnings after the close, WHO: Eritrea ends trachoma,
-Japan scrambling jets, Dhoni retiring from IPL, and Cyclone Akvan nearing
-India.
-
-Every story happened, or was first reported, on 17 November 2026.
-
-## Files
-
-- `main.py` — the entry program (copies `entry.png` to the output)
-- `entry.png` — the front-page image (1024 x 1024, 101,681 bytes)
-- `LICENSE` — MIT License
-- `.makefun/owner.json` — claim file naming the entrant's wallet
+Python 3, standard library only (no third-party packages needed).
